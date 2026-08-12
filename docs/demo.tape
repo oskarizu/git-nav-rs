@@ -34,16 +34,17 @@ Type `eval "$(git-nav --init zsh)"`
 Enter
 Type "clear"
 Enter
-Set TypingSpeed 40ms
+
+Set TypingSpeed 60ms
 Show
 
 Sleep 500ms
 Type "gnav"
 Enter
-Sleep 1500ms
+Sleep 2000ms
 Type "bil"
-Sleep 800ms
+Sleep 1000ms
 Down
-Sleep 400ms
+Sleep 800ms
 Enter
-Sleep 1800ms
+Sleep 2000ms

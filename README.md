@@ -14,17 +14,9 @@ finds (in parallel), and shows an inline TUI where you can filter, pick
 a repo with the arrow keys, and `cd` into it. The picker sits at the
 bottom of your terminal (like fzf) — no fullscreen takeover.
 
-```
-$ gnav
- filter: bil▏  3/47
-─────────────────────────────────────────────────────────────
-  REPO             ORG        BRANCH     SHA       STATUS
-▶ billing-svc      acme       feat/x     d4e5f6a   2 changed
-  billing-worker   acme       main       12ab34c   clean ↑1
-  billing-web      acme       main       f0e1d2c   clean
-─────────────────────────────────────────────────────────────
- ↑↓ move   type filter   enter cd   esc quit
-```
+![git-nav demo](docs/demo.gif)
+
+<sub>Regenerate the demo with `vhs docs/demo.tape` — see [docs/demo.tape](docs/demo.tape).</sub>
 
 ## Install
 
