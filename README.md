@@ -28,22 +28,46 @@ $ gnav
 
 ## Install
 
-From source (requires Rust ≥ 1.85 — for the 2024 edition):
+Requires Rust ≥ 1.85 (for the 2024 edition).
+
+From crates.io:
+
+```sh
+cargo install git-nav
+```
+
+Or straight from the git repository:
+
+```sh
+cargo install --git https://github.com/oskarizu/git-nav-rs
+```
+
+Or from a local checkout:
 
 ```sh
 cargo install --path .
 ```
 
-Then wire up the shell function so `cd` actually happens:
+Then wire up the shell function so `cd` actually happens — pick one:
+
+**Option A — automatic**, appends the wrapper to your rc file (idempotent,
+re-run any time to refresh the baked-in path):
 
 ```sh
-git-nav --install-shell    # appends a `gnav` function to your rc file
-exec $SHELL -l             # reload
-gnav                       # go!
+git-nav --install-shell
+exec $SHELL -l
+gnav
 ```
 
-Prefer to manage it yourself? `eval "$(git-nav --init zsh)"` in your
-rc file works too (also supports `bash` and `fish`).
+**Option B — manual `eval`**, add this line to your `~/.zshrc`,
+`~/.bashrc`, or `~/.config/fish/config.fish`:
+
+```sh
+eval "$(git-nav --init zsh)"    # or bash / fish
+```
+
+Both produce the exact same wrapper. A writes it to disk once, B
+re-evaluates it fresh on every shell start (sub-millisecond either way).
 
 ## Why the shell wrapper?
 
