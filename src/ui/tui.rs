@@ -289,7 +289,7 @@ fn draw(
         ],
     )
     .header(header)
-    .highlight_style(
+    .row_highlight_style(
         Style::default()
             .bg(Color::DarkGray)
             .add_modifier(Modifier::BOLD),

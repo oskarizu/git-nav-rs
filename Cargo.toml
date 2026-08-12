@@ -21,11 +21,11 @@ name = "git_nav"
 path = "src/lib.rs"
 
 [dependencies]
-crossterm = "0.28"
-ratatui = "0.28"
+crossterm = "0.29"
+ratatui = "0.30"
 rayon = "1.10"
 serde = { version = "1", features = ["derive"] }
-toml = "0.8"
+toml = "1"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
