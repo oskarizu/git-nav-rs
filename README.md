@@ -28,7 +28,7 @@ $ gnav
 
 ## Install
 
-From source (requires Rust ≥ 1.75):
+From source (requires Rust ≥ 1.85 — for the 2024 edition):
 
 ```sh
 cargo install --path .

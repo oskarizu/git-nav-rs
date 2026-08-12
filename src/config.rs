@@ -119,7 +119,10 @@ mod tests {
 
     #[test]
     fn expand_tilde_home() {
-        std::env::set_var("HOME", "/tmp/faux-home");
+        // SAFETY: env mutation is unsafe in Rust 2024 because env vars are
+        // process-global. This test only reads HOME after setting it, and
+        // no other test in this module races on HOME.
+        unsafe { std::env::set_var("HOME", "/tmp/faux-home") };
         assert_eq!(expand_tilde("~"), PathBuf::from("/tmp/faux-home"));
         assert_eq!(
             expand_tilde("~/projects"),

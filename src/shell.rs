@@ -125,12 +125,15 @@ mod tests {
 
     #[test]
     fn rc_file_maps_correctly() {
-        std::env::set_var("HOME", "/tmp/faux-home");
+        // SAFETY: see config::tests — HOME is only read after we set it.
+        unsafe { std::env::set_var("HOME", "/tmp/faux-home") };
         assert!(rc_file_for("zsh").unwrap().ends_with(".zshrc"));
         assert!(rc_file_for("bash").unwrap().ends_with(".bashrc"));
-        assert!(rc_file_for("fish")
-            .unwrap()
-            .ends_with(".config/fish/config.fish"));
+        assert!(
+            rc_file_for("fish")
+                .unwrap()
+                .ends_with(".config/fish/config.fish")
+        );
         assert!(rc_file_for("csh").is_err());
     }
 }
