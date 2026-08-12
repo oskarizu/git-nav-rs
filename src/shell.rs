@@ -12,10 +12,36 @@ pub fn init_snippet(shell: &str) -> String {
     let exe = current_exe();
     match shell {
         "fish" => format!(
-            "function gnav\n    set -l dest ({exe} $argv)\n    if test -n \"$dest\"\n        cd $dest\n    end\nend\n"
+            r#"function gnav
+    switch "$argv[1]"
+        case -h --help -V --version --config-path --init
+            {exe} $argv
+            return
+    end
+    set -l dest ({exe} $argv)
+    if test -n "$dest"
+        cd $dest
+    end
+end
+"#
         ),
+        // Works for both bash and zsh.
         _ => format!(
-            "gnav() {{\n  local dest\n  dest=\"$({exe} \"$@\")\" || return\n  [ -n \"$dest\" ] && cd \"$dest\"\n}}\n"
+            r#"gnav() {{
+  # Informational flags print to stdout for human consumption; running
+  # them through the capture-and-cd path below would try to `cd` into
+  # the help text. Pass them through directly instead.
+  case "$1" in
+    -h|--help|-V|--version|--config-path|--init)
+      {exe} "$@"
+      return
+      ;;
+  esac
+  local dest
+  dest="$({exe} "$@")" || return
+  [ -n "$dest" ] && cd "$dest"
+}}
+"#
         ),
     }
 }
@@ -96,6 +122,21 @@ mod tests {
         assert!(init_snippet("zsh").contains("gnav"));
         assert!(init_snippet("bash").contains("gnav"));
         assert!(init_snippet("fish").contains("function gnav"));
+    }
+
+    #[test]
+    fn snippet_passes_informational_flags_through() {
+        // Prevents regressions where `gnav --help` would try to `cd`
+        // into the help output.
+        for shell in ["bash", "zsh", "fish"] {
+            let s = init_snippet(shell);
+            for flag in ["--help", "--version", "--config-path", "--init"] {
+                assert!(
+                    s.contains(flag),
+                    "{shell} snippet missing passthrough for {flag}:\n{s}"
+                );
+            }
+        }
     }
 
     #[test]
