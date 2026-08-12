@@ -5,10 +5,10 @@
 
 use std::io;
 
-use crossterm::cursor::{Hide, Show};
+use crossterm::cursor::{Hide, MoveToColumn, MoveUp, Show};
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use crossterm::execute;
-use crossterm::terminal::{self, disable_raw_mode, enable_raw_mode};
+use crossterm::terminal::{self, Clear, ClearType, disable_raw_mode, enable_raw_mode};
 use ratatui::backend::CrosstermBackend;
 use ratatui::layout::{Constraint, Direction, Layout};
 use ratatui::style::{Color, Modifier, Style};
@@ -121,10 +121,20 @@ pub fn select(infos: &[RepoInfo]) -> crate::Result<Option<usize>> {
     )?;
 
     let result = run_loop(&mut terminal, infos);
+    drop(terminal);
 
     // Reclaim the picker's rows so the shell prompt returns to the line
-    // where it started — otherwise the picker leaves a blank chunk behind.
-    let _ = terminal.clear();
+    // where it started — `terminal.clear()` on an inline viewport only
+    // wipes the content, it doesn't remove the reserved space. Walking
+    // the cursor up to the viewport's top row and clearing from there
+    // to the end of the screen collapses the whole picker area, so the
+    // next output (a shell prompt) begins exactly where the picker did.
+    let _ = execute!(
+        io::stderr(),
+        MoveToColumn(0),
+        MoveUp(height.saturating_sub(1)),
+        Clear(ClearType::FromCursorDown),
+    );
 
     result
 }
