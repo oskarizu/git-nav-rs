@@ -1,5 +1,12 @@
 # git-nav
 
+[![CI](https://github.com/oskarizu/git-nav-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/oskarizu/git-nav-rs/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/oskarizu/git-nav-rs?label=release&color=blue)](https://github.com/oskarizu/git-nav-rs/releases)
+[![crates.io](https://img.shields.io/crates/v/git-nav.svg)](https://crates.io/crates/git-nav)
+[![Downloads](https://img.shields.io/crates/d/git-nav.svg)](https://crates.io/crates/git-nav)
+[![docs.rs](https://img.shields.io/docsrs/git-nav)](https://docs.rs/git-nav)
+[![License](https://img.shields.io/crates/l/git-nav.svg)](#license)
+
 A fast, keyboard-driven navigator for your local git repositories.
 
 `git-nav` walks a configured root, gathers status for every git repo it
