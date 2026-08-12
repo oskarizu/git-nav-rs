@@ -1,52 +1,139 @@
-//! Fullscreen ratatui selector. Arrow keys navigate, type-to-filter narrows
-//! the list, Enter picks, Esc/Ctrl-C quits. Rendered on stderr so stdout
-//! stays clean for the caller shell function.
+//! Inline ratatui selector. Arrow keys navigate, type-to-filter narrows
+//! the list, Enter picks, Esc/Ctrl-C quits. Rendered as a bottom-anchored
+//! inline viewport on stderr, so the shell's scrollback context stays put
+//! and stdout stays clean for the caller shell function.
 
 use std::io;
 
-use crossterm::cursor::Show;
+use crossterm::cursor::{Hide, Show};
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use crossterm::execute;
-use crossterm::terminal::{
-    disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
-};
+use crossterm::terminal::{self, disable_raw_mode, enable_raw_mode};
 use ratatui::backend::CrosstermBackend;
 use ratatui::layout::{Constraint, Direction, Layout};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Cell, Paragraph, Row, Table, TableState};
-use ratatui::Terminal;
+use ratatui::{Terminal, TerminalOptions, Viewport};
 
 use crate::git::RepoInfo;
 use crate::ui::fuzzy;
 
+/// Chrome rows around the table (filter line + table header line + hint).
+const CHROME_ROWS: u16 = 4;
+/// Never render smaller than this — below it the widget is unusable.
+const MIN_HEIGHT: u16 = 6;
+/// Never render taller than this even on huge terminals.
+const MAX_HEIGHT: u16 = 20;
+
 /// RAII guard that always restores the terminal on drop — including panic
-/// unwinds. Skipping any of these on exit leaves the shell in a state that
-/// some terminals (notably Ghostty) read as "a command is still running",
-/// which then triggers a spurious close-window warning.
+/// unwinds. Skipping raw-mode teardown leaves the shell in a state some
+/// terminals (notably Ghostty) read as "a command is still running", which
+/// triggers a spurious close-window warning.
 struct TerminalGuard;
 
 impl TerminalGuard {
     fn enter() -> crate::Result<Self> {
         enable_raw_mode()?;
-        execute!(io::stderr(), EnterAlternateScreen)?;
+        execute!(io::stderr(), Hide)?;
         Ok(Self)
     }
 }
 
 impl Drop for TerminalGuard {
     fn drop(&mut self) {
-        let _ = execute!(io::stderr(), Show, LeaveAlternateScreen);
+        let _ = execute!(io::stderr(), Show);
         let _ = disable_raw_mode();
     }
 }
 
+/// RAII helper that temporarily points stdout at `/dev/tty`.
+///
+/// Ratatui's inline viewport calls `crossterm::cursor::position()`, which
+/// writes a CPR query (`\x1b[6n`) to stdout and reads the response from
+/// stdin. When the shell wrapper runs `$(git-nav …)`, stdout is a pipe
+/// (not the tty), so the query vanishes and crossterm times out. We
+/// redirect stdout to `/dev/tty` for the picker's lifetime, then restore
+/// it so `println!("{path}")` still lands in the wrapper's pipe.
+#[cfg(unix)]
+struct StdoutToTty {
+    saved: libc::c_int,
+}
+
+#[cfg(unix)]
+impl StdoutToTty {
+    fn install() -> crate::Result<Self> {
+        use std::fs::OpenOptions;
+        use std::io::Write as _;
+        use std::os::unix::io::AsRawFd;
+
+        io::stdout().flush().ok();
+        let saved = unsafe { libc::dup(libc::STDOUT_FILENO) };
+        if saved < 0 {
+            return Err(io::Error::last_os_error().into());
+        }
+        let tty = match OpenOptions::new().write(true).open("/dev/tty") {
+            Ok(f) => f,
+            Err(e) => {
+                unsafe { libc::close(saved) };
+                return Err(e.into());
+            }
+        };
+        let rc = unsafe { libc::dup2(tty.as_raw_fd(), libc::STDOUT_FILENO) };
+        if rc < 0 {
+            let e = io::Error::last_os_error();
+            unsafe { libc::close(saved) };
+            return Err(e.into());
+        }
+        Ok(Self { saved })
+    }
+}
+
+#[cfg(unix)]
+impl Drop for StdoutToTty {
+    fn drop(&mut self) {
+        use std::io::Write as _;
+        io::stdout().flush().ok();
+        unsafe {
+            libc::dup2(self.saved, libc::STDOUT_FILENO);
+            libc::close(self.saved);
+        }
+    }
+}
+
 pub fn select(infos: &[RepoInfo]) -> crate::Result<Option<usize>> {
+    // Order matters: the stdout redirect must exist before ratatui's
+    // first draw (which queries cursor position), and must outlive the
+    // terminal guard so cleanup ANSI sequences also land on the tty.
+    #[cfg(unix)]
+    let _stdout_redirect = StdoutToTty::install()?;
     let _guard = TerminalGuard::enter()?;
+
+    let (_, term_h) = terminal::size().unwrap_or((80, 24));
+    let height = picker_height(term_h, infos.len());
+
     let backend = CrosstermBackend::new(io::stderr());
-    let mut terminal = Terminal::new(backend)?;
-    run_loop(&mut terminal, infos)
-    // TerminalGuard::drop restores cursor, alt-screen, and raw mode.
+    let mut terminal = Terminal::with_options(
+        backend,
+        TerminalOptions {
+            viewport: Viewport::Inline(height),
+        },
+    )?;
+
+    let result = run_loop(&mut terminal, infos);
+
+    // Reclaim the picker's rows so the shell prompt returns to the line
+    // where it started — otherwise the picker leaves a blank chunk behind.
+    let _ = terminal.clear();
+
+    result
+}
+
+fn picker_height(term_h: u16, repo_count: usize) -> u16 {
+    let ideal = (repo_count as u16).saturating_add(CHROME_ROWS + 1);
+    let capped = ideal.clamp(MIN_HEIGHT, MAX_HEIGHT);
+    let cap_by_term = term_h.saturating_sub(1).max(MIN_HEIGHT);
+    capped.min(cap_by_term)
 }
 
 fn run_loop(
@@ -157,15 +244,15 @@ fn draw(
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(3),
-            Constraint::Min(3),
-            Constraint::Length(3),
+            Constraint::Length(1), // filter line
+            Constraint::Min(2),    // table (with top separator)
+            Constraint::Length(2), // hint (with top separator)
         ])
         .split(f.area());
 
-    let title = format!(" git-nav ({} / {}) ", filtered.len(), infos.len());
-    let filter_line = Line::from(vec![
-        Span::styled("filter: ", Style::default().fg(Color::DarkGray)),
+    let counter = format!("{}/{}", filtered.len(), infos.len());
+    let filter_line = Paragraph::new(Line::from(vec![
+        Span::styled(" filter: ", Style::default().fg(Color::DarkGray)),
         Span::styled(
             filter,
             Style::default()
@@ -178,22 +265,16 @@ fn draw(
                 .fg(Color::Yellow)
                 .add_modifier(Modifier::SLOW_BLINK),
         ),
-    ]);
-    let filter_para = Paragraph::new(filter_line).block(
-        Block::default().borders(Borders::ALL).title(Span::styled(
-            title,
-            Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
-        )),
-    );
-    f.render_widget(filter_para, chunks[0]);
+        Span::raw("  "),
+        Span::styled(counter, Style::default().fg(Color::DarkGray)),
+    ]));
+    f.render_widget(filter_line, chunks[0]);
 
-    let header = Row::new(vec!["REPO", "ORG", "BRANCH", "SHA", "STATUS"])
-        .style(
-            Style::default()
-                .fg(Color::DarkGray)
-                .add_modifier(Modifier::BOLD),
-        )
-        .bottom_margin(0);
+    let header = Row::new(vec!["REPO", "ORG", "BRANCH", "SHA", "STATUS"]).style(
+        Style::default()
+            .fg(Color::DarkGray)
+            .add_modifier(Modifier::BOLD),
+    );
 
     let rows: Vec<Row> = filtered.iter().map(|&i| build_row(&infos[i])).collect();
 
@@ -214,10 +295,14 @@ fn draw(
             .add_modifier(Modifier::BOLD),
     )
     .highlight_symbol("▶ ")
-    .block(Block::default().borders(Borders::LEFT | Borders::RIGHT));
+    .block(
+        Block::default()
+            .borders(Borders::TOP)
+            .border_style(Style::default().fg(Color::DarkGray)),
+    );
     f.render_stateful_widget(table, chunks[1], state);
 
-    let hint = Line::from(vec![
+    let hint = Paragraph::new(Line::from(vec![
         Span::raw(" "),
         Span::styled("↑↓", Style::default().fg(Color::Cyan)),
         Span::raw(" move   "),
@@ -227,9 +312,13 @@ fn draw(
         Span::raw(" cd   "),
         Span::styled("esc", Style::default().fg(Color::Cyan)),
         Span::raw(" quit"),
-    ]);
-    let footer = Paragraph::new(hint).block(Block::default().borders(Borders::ALL));
-    f.render_widget(footer, chunks[2]);
+    ]))
+    .block(
+        Block::default()
+            .borders(Borders::TOP)
+            .border_style(Style::default().fg(Color::DarkGray)),
+    );
+    f.render_widget(hint, chunks[2]);
 }
 
 fn build_row(info: &RepoInfo) -> Row<'static> {
@@ -250,10 +339,7 @@ fn status_line(info: &RepoInfo) -> Line<'static> {
             Style::default().fg(Color::Yellow),
         ));
     } else {
-        spans.push(Span::styled(
-            "clean",
-            Style::default().fg(Color::Green),
-        ));
+        spans.push(Span::styled("clean", Style::default().fg(Color::Green)));
     }
     if info.ahead > 0 {
         spans.push(Span::raw(" "));
@@ -331,5 +417,22 @@ mod tests {
         assert_eq!(s.selected(), Some(0));
         move_selection(&mut s, 100, 5);
         assert_eq!(s.selected(), Some(4));
+    }
+
+    #[test]
+    fn picker_height_scales_with_repo_count() {
+        // small: chrome + 1 extra + repos, but clamped to MIN
+        assert_eq!(picker_height(50, 1), MIN_HEIGHT);
+        // medium: fits without clamping
+        assert_eq!(picker_height(50, 10), 10 + CHROME_ROWS + 1);
+        // large: clamped at MAX
+        assert_eq!(picker_height(50, 100), MAX_HEIGHT);
+    }
+
+    #[test]
+    fn picker_height_respects_short_terminal() {
+        // Terminal too short to fit our ideal — cap to term_h - 1.
+        let h = picker_height(8, 20);
+        assert_eq!(h, 7);
     }
 }

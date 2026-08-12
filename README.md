@@ -3,20 +3,20 @@
 A fast, keyboard-driven navigator for your local git repositories.
 
 `git-nav` walks a configured root, gathers status for every git repo it
-finds (in parallel), and shows a fullscreen TUI where you can filter,
-pick a repo with the arrow keys, and `cd` into it.
+finds (in parallel), and shows an inline TUI where you can filter, pick
+a repo with the arrow keys, and `cd` into it. The picker sits at the
+bottom of your terminal (like fzf) — no fullscreen takeover.
 
 ```
-┌ git-nav (3 / 47) ────────────────────────────────────────────┐
-│ filter: bil▏                                                 │
-└──────────────────────────────────────────────────────────────┘
-│   REPO             ORG        BRANCH     SHA       STATUS    │
-│ ▶ billing-svc      acme       feat/x     d4e5f6a   2 changed │
-│   billing-worker   acme       main       12ab34c   clean ↑1  │
-│   billing-web      acme       main       f0e1d2c   clean     │
-┌──────────────────────────────────────────────────────────────┐
-│ ↑↓ move   type filter   enter cd   esc quit                  │
-└──────────────────────────────────────────────────────────────┘
+$ gnav
+ filter: bil▏  3/47
+─────────────────────────────────────────────────────────────
+  REPO             ORG        BRANCH     SHA       STATUS
+▶ billing-svc      acme       feat/x     d4e5f6a   2 changed
+  billing-worker   acme       main       12ab34c   clean ↑1
+  billing-web      acme       main       f0e1d2c   clean
+─────────────────────────────────────────────────────────────
+ ↑↓ move   type filter   enter cd   esc quit
 ```
 
 ## Install
@@ -100,7 +100,7 @@ The code lives in small modules under `src/`:
 - `config` — TOML config load / save / first-run prompt
 - `scanner` — parallel filesystem walk
 - `git` — `RepoInfo` + git subprocess calls (also parallel)
-- `ui::tui` — ratatui fullscreen selector
+- `ui::tui` — ratatui inline selector (bottom-anchored, sized to fit)
 - `ui::render` — plain-text table (non-TTY fallback)
 - `ui::fuzzy` — subsequence matcher
 - `shell` — `--init` snippets + `--install-shell`
