@@ -108,7 +108,10 @@ mod tests {
     fn strip_removes_ansi_sequences() {
         assert_eq!(strip_ansi("\x1b[31mred\x1b[0m"), "red");
         assert_eq!(strip_ansi("plain"), "plain");
-        assert_eq!(strip_ansi("\x1b[1;33mbold-yellow\x1b[0mtail"), "bold-yellowtail");
+        assert_eq!(
+            strip_ansi("\x1b[1;33mbold-yellow\x1b[0mtail"),
+            "bold-yellowtail"
+        );
     }
 
     #[test]

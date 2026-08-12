@@ -18,7 +18,9 @@ pub enum Command {
     Run,
     Help,
     Version,
-    Init { shell: String },
+    Init {
+        shell: String,
+    },
     InstallShell,
     ConfigPath,
     Reset,
@@ -124,7 +126,10 @@ mod tests {
     fn root_and_depth_override() {
         let p = parse(&args(&["--root", "/tmp", "--depth", "2"])).unwrap();
         assert_eq!(p.depth_override, Some(2));
-        assert_eq!(p.root_override.as_deref(), Some(std::path::Path::new("/tmp")));
+        assert_eq!(
+            p.root_override.as_deref(),
+            Some(std::path::Path::new("/tmp"))
+        );
     }
 
     #[test]
