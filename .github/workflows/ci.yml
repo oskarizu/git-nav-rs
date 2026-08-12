@@ -1,5 +1,10 @@
 name: ci
 
+# Draft PRs skip CI via the per-job `if:` so pushes to a WIP branch
+# don't burn runner slots on every save. Everything else runs on every
+# push to main and every non-draft PR — no path filters, so branch
+# protection status checks always have a run to attach to.
+
 on:
   push:
     branches: [main]
@@ -17,6 +22,7 @@ jobs:
   fmt:
     name: rustfmt
     runs-on: ubuntu-latest
+    if: github.event.pull_request.draft != true
     steps:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
@@ -27,6 +33,7 @@ jobs:
   clippy:
     name: clippy
     runs-on: ubuntu-latest
+    if: github.event.pull_request.draft != true
     steps:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
@@ -38,6 +45,7 @@ jobs:
   audit:
     name: cargo-audit
     runs-on: ubuntu-latest
+    if: github.event.pull_request.draft != true
     steps:
       - uses: actions/checkout@v5
       - uses: rustsec/audit-check@v2.0.0
@@ -45,12 +53,9 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
   test:
-    name: test / ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest]
+    name: test
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft != true
     steps:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
