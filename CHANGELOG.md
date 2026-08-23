@@ -7,6 +7,8 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-08-23
+
 ### Added
 
 - New `AUTHOR` column in the picker table showing the author of each
@@ -62,6 +64,7 @@ First public release. Full rewrite of an earlier Python prototype.
 - Dual-licensed MIT OR Apache-2.0. Published to
   [crates.io](https://crates.io/crates/git-nav).
 
-[Unreleased]: https://github.com/oskarizu/git-nav-rs/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/oskarizu/git-nav-rs/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/oskarizu/git-nav-rs/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/oskarizu/git-nav-rs/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/oskarizu/git-nav-rs/releases/tag/v0.2.0
