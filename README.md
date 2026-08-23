@@ -97,7 +97,8 @@ depth = 4
 | `Esc` / `Ctrl-C`       | quit without picking      |
 
 The filter is a case-insensitive subsequence match across REPO, ORG,
-and BRANCH — typing `bsv` matches `billing-svc`.
+BRANCH, and AUTHOR — typing `bsv` matches `billing-svc`, typing your
+own name narrows to repos you touched last.
 
 ## Performance
 

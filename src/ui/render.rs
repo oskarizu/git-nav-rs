@@ -10,8 +10,8 @@ const RED: &str = "\x1b[31m";
 const CYAN: &str = "\x1b[36m";
 
 pub fn print_table(infos: &[RepoInfo]) {
-    let headers = ["#", "REPO", "ORG", "BRANCH", "SHA", "STATUS"];
-    let rows: Vec<[String; 6]> = infos
+    let headers = ["#", "REPO", "ORG", "BRANCH", "AUTHOR", "SHA", "STATUS"];
+    let rows: Vec<[String; 7]> = infos
         .iter()
         .enumerate()
         .map(|(i, info)| {
@@ -20,18 +20,19 @@ pub fn print_table(infos: &[RepoInfo]) {
                 info.name.clone(),
                 info.org.clone(),
                 info.branch.clone(),
+                info.author.clone(),
                 info.sha.clone(),
                 format_status_ansi(info),
             ]
         })
         .collect();
 
-    let mut widths = [0usize; 6];
+    let mut widths = [0usize; 7];
     for (c, h) in headers.iter().enumerate() {
         widths[c] = vlen(h);
     }
     for row in &rows {
-        for c in 0..6 {
+        for c in 0..7 {
             widths[c] = widths[c].max(vlen(&row[c]));
         }
     }

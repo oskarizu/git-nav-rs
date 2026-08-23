@@ -18,6 +18,7 @@ pub struct RepoInfo {
     pub behind: u32,
     pub dirty: u32,
     pub org: String,
+    pub author: String,
 }
 
 impl RepoInfo {
@@ -35,6 +36,7 @@ impl RepoInfo {
             behind: 0,
             dirty: 0,
             org: "-".into(),
+            author: "-".into(),
         }
     }
 }
@@ -67,6 +69,21 @@ pub fn get_repo_info(path: &Path) -> RepoInfo {
             info.org = parse_org(stdout.trim());
         }
     }
+
+    if let Ok(output) = Command::new("git")
+        .arg("-C")
+        .arg(path)
+        .args(["log", "-1", "--format=%an"])
+        .output()
+    {
+        if let Ok(stdout) = String::from_utf8(output.stdout) {
+            let author = stdout.trim();
+            if !author.is_empty() {
+                info.author = author.to_string();
+            }
+        }
+    }
+
     info
 }
 
@@ -176,5 +193,31 @@ mod tests {
         parse_status(s, &mut info);
         assert_eq!(info.sha, "-");
         assert_eq!(info.branch, "main");
+    }
+
+    fn run_git(path: &std::path::Path, args: &[&str]) {
+        let ok = std::process::Command::new("git")
+            .arg("-C")
+            .arg(path)
+            .args(args)
+            .status()
+            .expect("git invoke")
+            .success();
+        assert!(ok, "git {args:?} failed in {path:?}");
+    }
+
+    #[test]
+    fn get_repo_info_populates_author() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path();
+        run_git(path, &["init", "-q"]);
+        run_git(path, &["config", "user.email", "test@example.com"]);
+        run_git(path, &["config", "user.name", "Test Author"]);
+        std::fs::write(path.join("f"), "hi").unwrap();
+        run_git(path, &["add", "."]);
+        run_git(path, &["commit", "-q", "-m", "init"]);
+
+        let info = get_repo_info(path);
+        assert_eq!(info.author, "Test Author");
     }
 }

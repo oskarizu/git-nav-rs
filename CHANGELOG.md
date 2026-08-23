@@ -7,6 +7,14 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+
+- New `AUTHOR` column in the picker table showing the author of each
+  repo's last commit (`git log -1 --format=%an`). Fetched in parallel
+  alongside status / branch / remote, so wall-clock is unchanged.
+- Fuzzy filter now also matches against the author name — typing your
+  own name narrows to repos you touched last.
+
 ## [0.2.1] - 2026-08-23
 
 Release-workflow-only patch. The compiled crate is byte-identical to

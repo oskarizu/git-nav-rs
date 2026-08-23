@@ -221,6 +221,7 @@ fn apply_filter(infos: &[RepoInfo], filter: &str) -> Vec<usize> {
             fuzzy::matches(filter, &r.name)
                 || fuzzy::matches(filter, &r.org)
                 || fuzzy::matches(filter, &r.branch)
+                || fuzzy::matches(filter, &r.author)
         })
         .map(|(i, _)| i)
         .collect()
@@ -280,7 +281,7 @@ fn draw(
     ]));
     f.render_widget(filter_line, chunks[0]);
 
-    let header = Row::new(vec!["REPO", "ORG", "BRANCH", "SHA", "STATUS"]).style(
+    let header = Row::new(vec!["REPO", "ORG", "BRANCH", "AUTHOR", "SHA", "STATUS"]).style(
         Style::default()
             .fg(Color::DarkGray)
             .add_modifier(Modifier::BOLD),
@@ -291,11 +292,12 @@ fn draw(
     let table = Table::new(
         rows,
         [
-            Constraint::Percentage(28),
-            Constraint::Percentage(18),
-            Constraint::Percentage(22),
-            Constraint::Length(8),
+            Constraint::Percentage(24),
+            Constraint::Percentage(14),
             Constraint::Percentage(20),
+            Constraint::Percentage(16),
+            Constraint::Length(8),
+            Constraint::Percentage(16),
         ],
     )
     .header(header)
@@ -336,6 +338,7 @@ fn build_row(info: &RepoInfo) -> Row<'static> {
         Cell::from(info.name.clone()),
         Cell::from(info.org.clone()).style(Style::default().fg(Color::Blue)),
         Cell::from(info.branch.clone()).style(Style::default().fg(Color::Magenta)),
+        Cell::from(info.author.clone()).style(Style::default().fg(Color::Gray)),
         Cell::from(info.sha.clone()).style(Style::default().fg(Color::DarkGray)),
         Cell::from(status_line(info)),
     ])
@@ -372,7 +375,7 @@ fn status_line(info: &RepoInfo) -> Line<'static> {
 mod tests {
     use super::*;
 
-    fn ri(name: &str, org: &str, branch: &str) -> RepoInfo {
+    fn ri(name: &str, org: &str, branch: &str, author: &str) -> RepoInfo {
         RepoInfo {
             name: name.into(),
             path: format!("/tmp/{name}"),
@@ -382,25 +385,36 @@ mod tests {
             behind: 0,
             dirty: 0,
             org: org.into(),
+            author: author.into(),
         }
     }
 
     #[test]
     fn empty_filter_returns_all() {
-        let infos = vec![ri("a", "o", "main"), ri("b", "o", "main")];
+        let infos = vec![ri("a", "o", "main", "-"), ri("b", "o", "main", "-")];
         assert_eq!(apply_filter(&infos, ""), vec![0, 1]);
     }
 
     #[test]
     fn filter_matches_name_org_or_branch() {
         let infos = vec![
-            ri("api-gateway", "acme", "main"),
-            ri("billing-svc", "acme", "feat/x"),
-            ri("website", "personal", "main"),
+            ri("api-gateway", "acme", "main", "-"),
+            ri("billing-svc", "acme", "feat/x", "-"),
+            ri("website", "personal", "main", "-"),
         ];
         assert_eq!(apply_filter(&infos, "bill"), vec![1]);
         assert_eq!(apply_filter(&infos, "person"), vec![2]);
         assert_eq!(apply_filter(&infos, "feat"), vec![1]);
+    }
+
+    #[test]
+    fn filter_matches_author() {
+        let infos = vec![
+            ri("api-gateway", "acme", "main", "Oscar García"),
+            ri("billing-svc", "acme", "feat/x", "Ada Lovelace"),
+        ];
+        assert_eq!(apply_filter(&infos, "oscar"), vec![0]);
+        assert_eq!(apply_filter(&infos, "ada"), vec![1]);
     }
 
     #[test]
